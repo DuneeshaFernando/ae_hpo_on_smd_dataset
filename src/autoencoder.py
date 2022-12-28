@@ -30,8 +30,8 @@ class AutoEncoder(nn.Module):
             else:
                 decoder_layers['relu_' + str(layer_n)] = nn.ReLU()
 
-        self.encoder = nn.Sequential(encoder_layers)
-        self.decoder = nn.Sequential(decoder_layers)
+        self.encoder = nn.Sequential(encoder_layers).to(device)
+        self.decoder = nn.Sequential(decoder_layers).to(device)
 
     def forward(self, input_window):
         latent_window = self.encoder(input_window)
