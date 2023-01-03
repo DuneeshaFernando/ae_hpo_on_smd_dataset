@@ -1,8 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=smdAeHpoArray
-#SBATCH --ntasks=1
-#SBATCH -t 0:15:00
+#SBATCH -t 0:30:00
 #SBATCH --array=1-300%3
+#SBATCH --gres=gpu:1
+#SBATCH -p gpu-a100
+#SBATCH --mem=16G
 
 # Set the remote port and server
 REMOTEHOST=34.82.211.43
