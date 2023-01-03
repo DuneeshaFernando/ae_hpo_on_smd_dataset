@@ -8,6 +8,7 @@ import torch.utils.data as data_utils
 from config import config as conf
 import src.autoencoder as autoencoder
 from src.evaluation import Evaluation
+import math
 
 import argparse
 import random
@@ -25,10 +26,10 @@ def combine_plotly_figs_to_html(plotly_figs, html_fname, include_plotlyjs="cdn")
 
 def plot_optuna_default_graphs(optuna_study):
     history_plot = optuna.visualization.plot_optimization_history(optuna_study)
-    plot_list = [history_plot]
+    parallel_plot = optuna.visualization.plot_parallel_coordinate(optuna_study)
+    slice_plot = optuna.visualization.plot_slice(optuna_study)
+    plot_list = [history_plot, parallel_plot, slice_plot]
     return plot_list
-
-# file_name = 'machine-1-4' # Other values; machine-2-5, machine-3-6
 
 def main(config, trial_number="best", file_name="machine-1-1"):
     # Pre-requisites
@@ -72,7 +73,7 @@ def main(config, trial_number="best", file_name="machine-1-1"):
     windows_anomaly = anomaly_df_scaled.values[np.arange(config["WINDOW_SIZE"])[None, :] + np.arange(anomaly_df_scaled.shape[0] - config["WINDOW_SIZE"])[:, None]]
 
     w_size = windows_normal.shape[1] * windows_normal.shape[2] # w_size is the input window size
-    z_size = windows_normal.shape[1] * config["HIDDEN_SIZE"] # z_size is the latent size
+    z_size = config["HIDDEN_SIZE"] # z_size is the latent size
 
     windows_normal_train = windows_normal[:int(np.floor(.8 * windows_normal.shape[0]))]
     windows_normal_val = windows_normal[int(np.floor(.8 * windows_normal.shape[0])):]
@@ -132,8 +133,9 @@ def main(config, trial_number="best", file_name="machine-1-1"):
 
 def objective(trial):
     params = dict()
-    params["WINDOW_SIZE"] = trial.suggest_int("WINDOW_SIZE", 27, 100)
     params["NUM_LAYERS"] = trial.suggest_int("NUM_LAYERS", 2, 10)
+    window_size_limit = math.ceil((2**(params["NUM_LAYERS"]-1))/conf.n_features)
+    params["WINDOW_SIZE"] = trial.suggest_int("WINDOW_SIZE", window_size_limit, 100)
     hidden_size_limit = int((params["WINDOW_SIZE"]*conf.n_features)/(2**(params["NUM_LAYERS"]-1)))
     params["HIDDEN_SIZE"] = trial.suggest_int("HIDDEN_SIZE", 1, max(2,hidden_size_limit))
     params["BATCH_SIZE"] = trial.suggest_int("BATCH_SIZE", 20, 1000)
