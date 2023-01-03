@@ -40,7 +40,7 @@ class AutoEncoder(nn.Module):
 
 def training(epochs, autoencoder_model, train_loader, val_loader, learning_rate, model_name):
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(autoencoder_model.parameters(), lr=learning_rate, weight_decay=1e-5)
+    optimizer = torch.optim.Adam(autoencoder_model.parameters(), lr=learning_rate)
     best_loss = float('inf')
     for epoch in range(epochs):
         train_loss = 0
