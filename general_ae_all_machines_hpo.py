@@ -9,6 +9,7 @@ import torch.utils.data as data_utils
 from config import config as conf
 import src.autoencoder as autoencoder
 from src.evaluation import Evaluation
+import math
 
 import argparse
 import random
@@ -26,12 +27,18 @@ def combine_plotly_figs_to_html(plotly_figs, html_fname, include_plotlyjs="cdn")
 
 def plot_optuna_default_graphs(optuna_study):
     history_plot = optuna.visualization.plot_optimization_history(optuna_study)
-    plot_list = [history_plot]
+    parallel_plot = optuna.visualization.plot_parallel_coordinate(optuna_study)
+    slice_plot = optuna.visualization.plot_slice(optuna_study)
+    plot_list = [history_plot, parallel_plot, slice_plot]
     return plot_list
 
 def main(config, trial_number="best"):
     # Pre-requisites
     min_max_scaler = preprocessing.MinMaxScaler()
+
+    # setting seed for reproducibility
+    torch.manual_seed(conf.SEED)
+    np.random.seed(conf.SEED)
 
     dataset_path = const.SMD_DATASET_LOCATION
 
@@ -43,10 +50,6 @@ def main(config, trial_number="best"):
     # Finally merge those dataframes
     normal_df = pd.concat(normal_df_list)
     normal_df = normal_df.astype(float)
-    # Normalise/ standardize the normal dataframe
-    normal_df_values = normal_df.values
-    normal_df_values_scaled = min_max_scaler.fit_transform(normal_df_values)
-    normal_df_scaled = pd.DataFrame(normal_df_values_scaled)
 
     # Read anomaly data
     anomaly_path = join(dataset_path,'test_with_labels/')
@@ -55,10 +58,19 @@ def main(config, trial_number="best"):
     anomaly_df_list = [pd.read_csv(anomaly_path + anomaly_data_file) for anomaly_data_file in anomaly_data_files]
     # Finally merge those dataframes
     anomaly_df = pd.concat(anomaly_df_list)
-    anomaly_df = anomaly_df.astype(float)
-    # Separate out the is_anomaly labels before normalisation/standardization
+    # Separate out the anomaly labels before normalisation/standardization
     anomaly_df_labels = anomaly_df['Normal/Attack']
     anomaly_df = anomaly_df.drop(['Normal/Attack'], axis=1)
+    anomaly_df = anomaly_df.astype(float)
+
+    # Normalise/ standardize the normal and anomaly dataframe
+    full_df = pd.concat([normal_df, anomaly_df])
+    min_max_scaler.fit(full_df)
+
+    normal_df_values = normal_df.values
+    normal_df_values_scaled = min_max_scaler.transform(normal_df_values)
+    normal_df_scaled = pd.DataFrame(normal_df_values_scaled)
+
     # Normalise/ standardize the anomaly dataframe
     anomaly_df_values = anomaly_df.values
     anomaly_df_values_scaled = min_max_scaler.transform(anomaly_df_values)
@@ -69,11 +81,17 @@ def main(config, trial_number="best"):
     windows_anomaly = anomaly_df_scaled.values[np.arange(config["WINDOW_SIZE"])[None, :] + np.arange(anomaly_df_scaled.shape[0] - config["WINDOW_SIZE"])[:, None]]
 
     w_size = windows_normal.shape[1] * windows_normal.shape[2] # w_size is the input window size
-    z_size = windows_normal.shape[1] * config["HIDDEN_SIZE"] # z_size is the latent size
+    z_size = config["HIDDEN_SIZE"] # z_size is the latent size
+
+    windows_normal_train = windows_normal[:int(np.floor(.8 * windows_normal.shape[0]))]
+    windows_normal_val = windows_normal[int(np.floor(.8 * windows_normal.shape[0])):]
 
     # Create batches of training and testing data
     train_loader = torch.utils.data.DataLoader(data_utils.TensorDataset(
-        torch.from_numpy(windows_normal).float().view(([windows_normal.shape[0], w_size]))
+        torch.from_numpy(windows_normal_train).float().view(([windows_normal_train.shape[0], w_size]))
+    ), batch_size=config["BATCH_SIZE"], shuffle=False, num_workers=0)
+    val_loader = torch.utils.data.DataLoader(data_utils.TensorDataset(
+        torch.from_numpy(windows_normal_val).float().view(([windows_normal_val.shape[0], w_size]))
     ), batch_size=config["BATCH_SIZE"], shuffle=False, num_workers=0)
     test_loader = torch.utils.data.DataLoader(data_utils.TensorDataset(
         torch.from_numpy(windows_anomaly).float().view(([windows_anomaly.shape[0], w_size]))
@@ -81,16 +99,12 @@ def main(config, trial_number="best"):
 
     # Initialise the AutoEncoder model
     autoencoder_model = autoencoder.AutoEncoder(in_size=w_size, latent_size=z_size, num_layers=config["NUM_LAYERS"])
-    # Start training
-    autoencoder.training(conf.N_EPOCHS, autoencoder_model, train_loader, config["LEARNING_RATE"])
-
-    # Save the model and load the model
+    # Start training and save the best model, i.e. the model with the least validation loss
     model_path = const.MODEL_LOCATION
-    model_name = join(model_path,"ae_model_{}.pth".format(trial_number)) # parameterize the run number
-    torch.save({
-        'encoder': autoencoder_model.encoder.state_dict(),
-        'decoder': autoencoder_model.decoder.state_dict()
-    }, model_name)
+    model_name = join(model_path, "ae_model_{}.pth".format(trial_number))  # parameterize the run number
+    autoencoder.training(conf.N_EPOCHS, autoencoder_model, train_loader, val_loader, config["LEARNING_RATE"], model_name)
+
+    # Load the model
     checkpoint = torch.load(model_name)
     autoencoder_model.encoder.load_state_dict(checkpoint['encoder'])
     autoencoder_model.decoder.load_state_dict(checkpoint['decoder'])
@@ -99,8 +113,17 @@ def main(config, trial_number="best"):
     results = autoencoder.testing(autoencoder_model, test_loader)
     y_pred_for_test_set = np.concatenate([torch.stack(results[:-1]).flatten().detach().cpu().numpy(), results[-1].flatten().detach().cpu().numpy()])
 
+    # Process the actual labels
+    windows_labels = []
+    for i in range(len(anomaly_df_labels) - config["WINDOW_SIZE"]):
+        windows_labels.append(list(np.int_(anomaly_df_labels[i:i + config["WINDOW_SIZE"]])))
+
+    processed_test_labels = [1.0 if (np.sum(window) > 0) else 0 for window in windows_labels]
+
+    thresholding_percentile = 100 - (((processed_test_labels.count(1.0)) / (len(processed_test_labels))) * 100)
+
     # Obtain threshold based on pth percentile of the mean squared error
-    threshold = np.percentile(y_pred_for_test_set, [99.96])[0]  # 90th percentile
+    threshold = np.percentile(y_pred_for_test_set, [thresholding_percentile])[0]  # 90th percentile
     # Map the predictions to anomaly labels after applying the threshold
     predicted_labels = []
     for val in y_pred_for_test_set:
@@ -110,15 +133,16 @@ def main(config, trial_number="best"):
             predicted_labels.append(0)
 
     # Evaluate the predicted_labels against the actual labels
-    test_eval = Evaluation(anomaly_df_labels[config["WINDOW_SIZE"]:], predicted_labels)
+    test_eval = Evaluation(processed_test_labels, predicted_labels)
     test_eval.print()
 
     return test_eval.auc
 
 def objective(trial):
     params = dict()
-    params["WINDOW_SIZE"] = trial.suggest_int("WINDOW_SIZE", 6, 100)
     params["NUM_LAYERS"] = trial.suggest_int("NUM_LAYERS", 2, 10)
+    window_size_limit = math.ceil((2 ** (params["NUM_LAYERS"] - 1)) / conf.n_features)
+    params["WINDOW_SIZE"] = trial.suggest_int("WINDOW_SIZE", window_size_limit, 100)
     hidden_size_limit = int((params["WINDOW_SIZE"]*conf.n_features)/(2**(params["NUM_LAYERS"]-1)))
     params["HIDDEN_SIZE"] = trial.suggest_int("HIDDEN_SIZE", 1, max(2,hidden_size_limit))
     params["BATCH_SIZE"] = trial.suggest_int("BATCH_SIZE", 20, 1000)
