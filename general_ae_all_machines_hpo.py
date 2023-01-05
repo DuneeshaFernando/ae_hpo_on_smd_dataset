@@ -1,8 +1,7 @@
 import pandas as pd
 from sklearn import preprocessing
 import src.constants as const
-from os import listdir
-from os.path import isfile, join
+from os.path import join
 import numpy as np
 import torch
 import torch.utils.data as data_utils
@@ -41,12 +40,13 @@ def main(config, trial_number="best"):
     np.random.seed(conf.SEED)
 
     dataset_path = const.SMD_DATASET_LOCATION
+    # Identify the csvs of machines without concept drift
+    cluster_files = ['machine-1-1.csv', 'machine-1-6.csv', 'machine-1-7.csv', 'machine-2-1.csv', 'machine-2-2.csv', 'machine-2-7.csv', 'machine-2-8.csv', 'machine-3-3.csv', 'machine-3-4.csv', 'machine-3-6.csv', 'machine-3-8.csv', 'machine-3-11.csv']
 
     # Read normal data
     normal_path = join(dataset_path,'train/')
     # As the first step, combine the csvs inside normal_data folder
-    normal_data_files = [f for f in listdir(normal_path) if isfile(join(normal_path, f))]
-    normal_df_list = [pd.read_csv(normal_path + normal_data_file) for normal_data_file in normal_data_files]
+    normal_df_list = [pd.read_csv(normal_path + normal_data_file) for normal_data_file in cluster_files]
     # Finally merge those dataframes
     normal_df = pd.concat(normal_df_list)
     normal_df = normal_df.astype(float)
@@ -54,8 +54,7 @@ def main(config, trial_number="best"):
     # Read anomaly data
     anomaly_path = join(dataset_path,'test_with_labels/')
     # As the first step, combine the csvs inside anomaly_data folder
-    anomaly_data_files = [f for f in listdir(anomaly_path) if isfile(join(anomaly_path, f))]
-    anomaly_df_list = [pd.read_csv(anomaly_path + anomaly_data_file) for anomaly_data_file in anomaly_data_files]
+    anomaly_df_list = [pd.read_csv(anomaly_path + anomaly_data_file) for anomaly_data_file in cluster_files]
     # Finally merge those dataframes
     anomaly_df = pd.concat(anomaly_df_list)
     # Separate out the anomaly labels before normalisation/standardization
