@@ -40,8 +40,8 @@ def main(config, trial_number="best"):
     np.random.seed(conf.SEED)
 
     dataset_path = const.SMD_DATASET_LOCATION
-    # Identify the csvs inside the cluster e.g. ['machine-1-1.csv','machine-2-6.csv','machine-3-6.csv']
-    cluster_files = ['machine-1-1.csv', 'machine-2-6.csv', 'machine-3-6.csv']
+    # Identify the csvs inside the cluster e.g. ['machine-1-1.csv','machine-3-6.csv']
+    cluster_files = ['machine-1-1.csv', 'machine-3-6.csv']
 
     # Read normal data
     normal_path = join(dataset_path,'train/')
