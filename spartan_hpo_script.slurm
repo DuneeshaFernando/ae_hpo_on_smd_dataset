@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=smdAeHpoArray
 #SBATCH -t 0:30:00
-#SBATCH --array=1-300%3
+#SBATCH --array=1-200%3
 #SBATCH --gres=gpu:1
 #SBATCH -p gpu-a100
 #SBATCH --mem=16G
