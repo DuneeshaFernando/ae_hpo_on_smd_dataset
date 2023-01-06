@@ -17,7 +17,7 @@ source ~/venvs/3.8.2/bin/activate
 
 # Each trial in the study will be run in a separate job.
 # The Optuna study_name has to be set to be able to continue an existing study.
-OPTUNA_STUDY_NAME=duneesha_smd_ae_run_1
+OPTUNA_STUDY_NAME=duneesha_smd_ae_m12_run_1
 
 OPTUNA_DB=mysql://optuna:Optuna#1234@$REMOTEHOST:$REMOTEPORT/DuneeshaDB
 
