@@ -31,7 +31,7 @@ def plot_optuna_default_graphs(optuna_study):
     plot_list = [history_plot, parallel_plot, slice_plot]
     return plot_list
 
-def main(config, trial_number="best", file_name="machine-1-1"):
+def main(config, trial_number="best", file_name="machine-1-2"):
     # Pre-requisites
     min_max_scaler = preprocessing.MinMaxScaler()
 
