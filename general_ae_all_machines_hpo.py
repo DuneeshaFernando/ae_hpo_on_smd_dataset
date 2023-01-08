@@ -41,7 +41,7 @@ def main(config, trial_number="best"):
 
     dataset_path = const.SMD_DATASET_LOCATION
     # Identify the csvs of machines without concept drift
-    cluster_files = ['machine-1-1.csv', 'machine-1-6.csv', 'machine-1-7.csv', 'machine-2-1.csv', 'machine-2-2.csv', 'machine-2-7.csv', 'machine-2-8.csv', 'machine-3-3.csv', 'machine-3-4.csv', 'machine-3-6.csv', 'machine-3-8.csv', 'machine-3-11.csv']
+    cluster_files = ['machine-1-1.csv', 'machine-1-2.csv', 'machine-1-5.csv', 'machine-1-6.csv', 'machine-1-7.csv', 'machine-2-5.csv', 'machine-2-7.csv', 'machine-2-8.csv', 'machine-3-1.csv', 'machine-3-4.csv', 'machine-3-6.csv', 'machine-3-9.csv', 'machine-3-10.csv', 'machine-3-11.csv']
 
     # Read normal data
     normal_path = join(dataset_path,'train/')
