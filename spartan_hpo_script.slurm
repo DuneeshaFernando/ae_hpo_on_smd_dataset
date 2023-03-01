@@ -7,7 +7,7 @@
 #SBATCH --mem=16G
 
 # Set the remote port and server
-REMOTEHOST=34.82.211.43
+REMOTEHOST=34.105.9.156
 REMOTEPORT=3306
 
 # load modules and activate env
