@@ -63,10 +63,10 @@ def training(epochs, autoencoder_model, train_loader, val_loader, learning_rate,
                 val_loss += v_loss.item() * val_batch.shape[0]
             val_loss = val_loss / len(val_loader.dataset)
 
-        print(f'Epoch:{epoch + 1}, Train Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}')
+        # print(f'Epoch:{epoch + 1}, Train Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}')
         if val_loss < best_loss:
             best_loss = val_loss
-            print("Saving best model ..")
+            # print("Saving best model ..")
             # Save the model
             torch.save({
                 'encoder': autoencoder_model.encoder.state_dict(),
